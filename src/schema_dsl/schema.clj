@@ -1,7 +1,4 @@
-(ns datomic-schema.schema
-  (:require
-   [datomic.api :as d]
-   [datomic.function :as df]))
+(ns schema-dsl.schema)
 
 ;; The main schema functions
 (defmacro fields
@@ -26,13 +23,13 @@
   (keyword "db.part" nm))
 
 ;; The datomic schema conversion functions
-(defn get-enums [basens part enums]
-  (map (fn [n]
-         (let [basens (if-let [n (and (keyword? n) (namespace n))] n basens)
-               nm (if (string? n)
-                    (.replaceAll (.toLowerCase ^String n) " " "-")
-                    (name n))]
-           [:db/add (d/tempid part) :db/ident (keyword basens nm)])) enums))
+;; (defn get-enums [basens part enums]
+;;   (map (fn [n]
+;;          (let [basens (if-let [n (and (keyword? n) (namespace n))] n basens)
+;;                nm (if (string? n)
+;;                     (.replaceAll (.toLowerCase ^String n) " " "-")
+;;                     (name n))]
+;;            [:db/add (d/tempid part) :db/ident (keyword basens nm)])) enums))
 
 (def unique-mapping
   {:db.unique/value :db.unique/value
@@ -45,9 +42,7 @@
         dbtype (keyword "db.type" (if (= type :enum) "ref" (name type)))
         result
         (cond->
-            {(if (:alter! opts) :db.alter/_attribute :db.install/_attribute) :db.part/db
-             :db/id (d/tempid :db.part/db)
-             :db/ident (keyword basename fieldname)
+            {:db/ident (keyword basename fieldname)
              :db/valueType dbtype
              :db/cardinality (if (opts :many) :db.cardinality/many :db.cardinality/one)}
           (or index-all? gen-all? (opts :indexed))
@@ -62,7 +57,7 @@
     (concat
      acc
      [(if uniq (assoc result :db/unique uniq) result)]
-     (if (= type :enum) (get-enums (if basename (str basename "." fieldname) fieldname) part (first (filter vector? opts)))))))
+     )))
 
 (defn schema->datomic [opts acc schema]
   (if (or (:db/id schema) (vector? schema))
@@ -73,8 +68,7 @@
 
 (defn part->datomic [acc part]
   (conj acc
-        {:db/id (d/tempid :db.part/db),
-         :db/ident part
+        {:db/ident part
          :db.install/_partition :db.part/db}))
 
 (defn generate-parts [partlist]
@@ -88,8 +82,7 @@
 (defmacro dbfn
   [name params partition & code]
   (let [code-in-do `(do ~@code)]
-    `{:db/id (datomic.api/tempid ~partition)
-      :db/ident ~(keyword name)
+    `{:db/ident ~(keyword name)
       :db/fn (df/construct
               {:lang "clojure"
                :params '~params
