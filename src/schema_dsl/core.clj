@@ -1,4 +1,4 @@
-(ns schema-dsl.schema)
+(ns schema-dsl.core)
 
 ;; The main schema functions
 (defmacro fields
