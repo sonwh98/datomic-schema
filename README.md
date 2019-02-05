@@ -3,7 +3,8 @@
 schema-dsl makes it easier to see your datomic schema without sacrificing any features of Datomic
 
 
-## 1.3.0 API Breaking change
+## 1.3.1 API Breaking change
+Forked the original project to generate schema compatible with latest datomic-pro
 
 It's subtle, but the `(generate-schema)` optionally takes an option map instead of a boolean for `gen-all?`
 
