@@ -1,7 +1,8 @@
 # schema-dsl
 
-schema-dsl makes it easier to see your datomic schema without sacrificing any features of Datomic
-
+Spectacular is a fork of [datomic-schema](https://github.com/Yuppiechef/datomic-schema) refactored to be data-driven
+without the use of macros. Added support for clojure.spec validation for validation datomic data from 
+both Clojure and ClojureScript
 
 ## 1.3.1 API Breaking change
 Forked the original project to generate schema compatible with latest datomic-pro
