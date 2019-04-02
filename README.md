@@ -5,77 +5,13 @@ without the use of macros. Added support for clojure.spec validation for validat
 both Clojure and ClojureScript
 
 ## 1.3.1 API Breaking change
-Forked the original project to generate schema compatible with latest datomic-pro
 
-It's subtle, but the `(generate-schema)` optionally takes an option map instead of a boolean for `gen-all?`
-
-This is to arbitrarily support extra generating options, including the new `index-all?` option, which flags every attribute in the schema for indexing (in line with Stuart Halloway's recommendation that you simply turn indexing on for every attribute by default).
-
-The `defschema` and `defpart` macro's have been removed along with their `build-parts` and `build-schema` counterparts. These do not lead to good code design and it is encouraged that you remove them from your code at any rate.
-
-Lastly, the `field-to-datomic`, `schema-to-datomic` and `part-to-datomic` functions have all been renamed to `field->datomic`, `schema->datomic` and `part->datomic` respectively. This is really just an implementation detail, so it shouldn't have much impact.
+Spectacular borrows ideas and syntax from [datomic-schema](https://github.com/Yuppiechef/datomic-schema) but
+without the use of macros. The DSL syntax is similar but API is different.
 
 ## Example
 
-A 2 second example :
-
-```clojure
-(require '[datomic-schema.schema :as s])
-
-(def parts [(s/part "app")])
-
-(def schema
-  [(s/schema user
-    (s/fields
-     [username :string :indexed]
-     [pwd :string "Hashed password string"]
-     [email :string :indexed]
-     [status :enum [:pending :active :inactive :cancelled]]
-     [group :ref :many]))
-   
-   (s/schema group
-    (s/fields
-     [name :string]
-     [permission :string :many]))])
-
-(concat
-  (s/generate-parts parts)
-  (s/generate-schema schema)) 
-```
-
-This will define the attributes:
-
-```clojure
-:user/username, :db.type/string, indexed
-:user/pwd, :db.type/string, :db/doc "Hashed password string"
-:user/email, :db.type/string, indexed
-:user/status, :db.type/ref
-:user.status/pending - in :db.user space
-:user.status/active - in :db.user space
-:user.status/inactive - in :db.user space
-:user.status/cancelled - in :db.user space
-:user/group, :db.type/ref, :db.cardinality/many
-:group/name, :db.type/string
-:group/permission, :db.type/string, :db.cardinality/many
-```
-
-Also, as of 1.3.0, you can define database functions either as `defdbfn`, which creates a namespaced var so that you can use it inside your current process, or using `dbfn` which emits a map that you can directly transact:
-
-```
-(defdbfn dbinc [db e a qty] :db.part/user
-  [[:db/add e a (+ qty (or (get (d/entity db e) a) 0))]])
-
-(def db-schema
-  (concat
-   [(dbfn
-     dbdec [db e a qty] :db.part/user
-     [[:db/add e a (- (or (get (d/entity db e) a) 0) qty)]])]
-   (dbfns->datomic dbinc)))
-```
-
-See the [more exhaustive example](https://github.com/Yuppiechef/datomic-schema/blob/master/test/datomic_schema/schematest.clj)
-
-You get the idea..
+Pending...
 
 ## Usage
 
