@@ -18,16 +18,7 @@ Pending...
 In leiningen, simply add this to your dependencies
 
 ```clojure
-[datomic-schema "1.3.0"]
-```
-
-Or maven:
-```xml
-<dependency>
-  <groupId>datomic-schema</groupId>
-  <artifactId>datomic-schema</artifactId>
-  <version>1.3.0</version>
-</dependency>
+[stigmergy/spectacular "0.0.1"]
 ```
 
 A picture speaks a thousand words. I don't have a picture, but here's some code:
