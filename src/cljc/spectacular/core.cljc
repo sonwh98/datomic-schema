@@ -51,6 +51,18 @@
                       :zip [:string]
                       :country [:string]
                       }})
-  (generate-schema dsl)
-
+  (def schema (generate-schema dsl))
+  
+  (require '[datomic.api :as d])
+  
+  (def uri "datomic:free://localhost:4334/example")
+  (prn "created?=" (d/create-database uri))
+  (def conn (d/connect uri)) 
+  
+  (d/transact conn schema)
+  (def data [{:person/first-name "Sun"
+              :person/last-name "Tzu"
+              :person/phones ["215-123-4567" "267-123-4567"]
+              :person/emails ["sto@foobar.com"]}])
+  (d/transact conn data)
   )
