@@ -1,6 +1,10 @@
 (ns spectacular.core
   (:require [clojure.string :as str]
-            [stigmergy.tily :as util]))
+            [stigmergy.tily :as util]
+            [clojure.spec.alpha :as s]
+            [taoensso.timbre :as log :include-macros true]
+            
+            [spectacular.coerce :as co]))
 
 (defn generate-schema [schema-dsl]
   (flatten (for [[entity-ns attr] schema-dsl]
@@ -38,6 +42,99 @@
                                   @final-schema)]
                  [schema-map (map (fn [kw]
                                     {:db/ident kw}) @enum-keywords)])))))
+
+(defn conform [collection-of-entity]
+  (clojure.walk/prewalk (fn [e]
+                          (if (and (vector? e)
+                                   (let [e1 (first e)]
+                                     (and (keyword? e1)
+                                          (not= (namespace e1)
+                                                "db")
+                                          (not= e1 :part)
+                                          (not= e1 :idx))))
+                            (let [ [k v & other] e
+                                  conformer-kw (-> (str k "-conformer")
+                                                   (str/replace #":" "")
+                                                   keyword)
+                                  conformer-spec (s/get-spec conformer-kw)]
+                              (if conformer-spec
+                                (try
+                                  (into [k (s/conform conformer-kw v)] other)
+                                  #?(:cljs (catch js/Error e
+                                             (let [msg (.. e -message)]
+                                               (throw {:attribute k
+                                                       :value v
+                                                       :collection collection-of-entity
+                                                       :msg msg}))))
+                                  #?(:clj (catch Exception e
+                                            (log/error "exception " k v)
+                                            (throw e))))
+                                e))
+                            e))
+                        collection-of-entity))
+
+(defn generate-spec [schema-dsl]
+  (let [type->predicate-conform {:keyword [keyword? keyword]
+                                 :string [string? str]
+                                 :boolean [boolean? boolean]
+                                 :long [int? co/str->int]
+                                 :bigint (do
+                                           #?(:clj [#(= (type %) clojure.lang.BigInt) co/str->bigint])
+                                           #?(:cljs [number? co/str->bigint]))
+                                 :float [float? co/str->float]
+                                 :double [double? co/str->float]
+                                 :int [int? co/str->int]
+                                 :bigdec (do
+                                           #?(:clj [decimal? co/str->bigdec])
+                                           #?(:cljs [double? co/str->bigdec]))
+                                 :instant [inst? identity]
+                                 :uuid [uuid? identity]
+                                 :uri [string? identity]
+                                 :bytes [false? identity]}]
+    (doseq [[entity-ns attr] schema-dsl]
+      (let [attr-req-seq (doall (for [[attr-name attr-prop] attr]
+                                  (when (vector? attr-prop)
+                                    (let [[attr-type & other] attr-prop
+                                          [attr-predicate default-conform-fn] (if (= attr-type :enum)
+                                                                                (let [vector-of-enums (second attr-prop)]
+                                                                                  [(fn [e]
+                                                                                     (util/some-in? e vector-of-enums))
+                                                                                   (fn [e]
+                                                                                     (co/->enum e vector-of-enums))])
+                                                                                (type->predicate-conform attr-type))
+                                          attr-name (-> attr-name str (str/replace #":" ""))
+                                          spec-name (keyword (name entity-ns) attr-name)
+                                          conform-fn (or (first (filter #(fn? %) other))
+                                                         default-conform-fn)]
+
+                                      (when attr-predicate
+                                        (s/def-impl spec-name (str attr-predicate) attr-predicate))
+                                      
+                                      (when conform-fn
+                                        (let [conformer-name (keyword (str (name entity-ns)
+                                                                           "/" attr-name
+                                                                           "-conformer"))
+                                              conformer (s/conformer conform-fn)]
+                                          (s/def-impl conformer-name conformer-name conformer)))
+                                      [spec-name (util/some-in? :req other)]))))
+            attr-req-seq (filter (fn [attr-req]
+                                   (second attr-req))
+                                 attr-req-seq)
+            required-attributes (map #(first %) attr-req-seq)]
+        #?(:clj
+           (when-not (empty? required-attributes)
+             (let [current-ns (str *ns*)
+                   spec-name (-> entity-ns str (str/replace #":" ""))
+                   spec-name-kw (keyword current-ns spec-name)
+                   conformer-kw (keyword current-ns (str spec-name "-conformer"))
+                   conformer (s/conformer conform)
+                   sdef `(s/def ~spec-name-kw (s/keys :req ~(vec required-attributes)))
+                   sdef2 `(s/def ~conformer-kw ~conformer)]
+               ;;(prn sdef)
+               ;;(prn sdef2)
+               (eval sdef)
+               (eval sdef2))))))))
+
 
 (comment
   (def dsl {:person {:first-name [:string]
