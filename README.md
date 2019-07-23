@@ -7,9 +7,9 @@ both Clojure and ClojureScript
 ## Example
 ```Clojure
 (def dsl {:person {:first-name [:string]
-                     :last-name [:string]
-                     :phones [:string :many]
-                     :emails [:string :many]}
+                   :last-name [:string]
+                   :phones [:string :many]
+                   :emails [:string :many]}
             :address {:line1 [:string]
                       :line2 [:string]
                       :city [:string]
